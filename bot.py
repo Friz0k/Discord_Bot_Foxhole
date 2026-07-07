@@ -4,6 +4,7 @@ from discord.ext import commands
 import sqlite3
 import os
 import threading
+import asyncio
 from datetime import datetime
 from dotenv import load_dotenv
 from aiohttp import web
@@ -55,7 +56,6 @@ async def суммаотбить(interaction: discord.Interaction, сумма: s
 @bot.tree.command(name="пополнить", description="Добавить заработанные суммы (обязательно прикрепите скриншоты)")
 @app_commands.describe(дата="Дата (например 05.07)", суммы="Суммы через пробел (например 75000 85500)")
 async def пополнить(interaction: discord.Interaction, дата: str, суммы: str):
-    # Проверяем, есть ли прикреплённые файлы
     if not interaction.message or not interaction.message.attachments:
         await interaction.response.send_message(
             "❌ Вы должны прикрепить скриншоты к сообщению с командой!",
@@ -119,6 +119,7 @@ async def остаток(interaction: discord.Interaction):
     total = get_total()
     embed = discord.Embed(title="📊 Текущий остаток", description=f"**{total:,}** $", color=discord.Color.blue())
     await interaction.response.send_message(embed=embed)
+
 
 async def health_check(request):
     return web.Response(text="Bot is running")
