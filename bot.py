@@ -52,73 +52,67 @@ async def суммаотбить(interaction: discord.Interaction, сумма: s
     set_total(val)
     await interaction.response.send_message(f"✅ Сумма для отбития установлена: **{val:,}** $")
 
-@bot.tree.command(name="пополнить", description="Добавить заработанные суммы (откроется форма)")
-async def пополнить(interaction: discord.Interaction):
-    await interaction.response.send_modal(RentModal())
-
-class RentModal(discord.ui.Modal, title="Пополнение отбития"):
-    date = discord.ui.TextInput(
-        label="📅 Дата",
-        placeholder="Например: 05.07",
-        required=True,
-        max_length=50
-    )
-    sums = discord.ui.TextInput(
-        label="💰 Суммы (через пробел)",
-        placeholder="Например: 75000 85500",
-        required=True,
-        max_length=200
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        date = self.date.value
-        sums_str = self.sums.value
-
-        parts = sums_str.split()
-        amounts = []
-        for p in parts:
-            try:
-                val = int(p.replace(" ", "").replace(",", "").replace(".", ""))
-                amounts.append(val)
-            except:
-                await interaction.response.send_message(
-                    f"❌ Некорректное число: `{p}`. Используйте только цифры, разделяйте пробелами.",
-                    ephemeral=True
-                )
-                return
-
-        if not amounts:
-            await interaction.response.send_message("❌ Вы не ввели ни одной суммы.", ephemeral=True)
-            return
-
-        sum_earned = sum(amounts)
-        if sum_earned == 0:
-            await interaction.response.send_message("❌ Сумма не может быть равна 0.", ephemeral=True)
-            return
-
-        total_before = get_total()
-        if total_before == 0:
-            await interaction.response.send_message("❌ Сначала установите сумму для отбития командой `/суммаотбить`.", ephemeral=True)
-            return
-
-        new_total = subtract(sum_earned)
-
-        embed = discord.Embed(
-            title="📋 Пополнение отбития",
-            color=discord.Color.blue(),
-            timestamp=datetime.now()
+@bot.tree.command(name="пополнить", description="Добавить заработанные суммы (обязательно прикрепите скриншоты)")
+@app_commands.describe(дата="Дата (например 05.07)", суммы="Суммы через пробел (например 75000 85500)")
+async def пополнить(interaction: discord.Interaction, дата: str, суммы: str):
+    # Проверяем, есть ли прикреплённые файлы
+    if not interaction.message or not interaction.message.attachments:
+        await interaction.response.send_message(
+            "❌ Вы должны прикрепить скриншоты к сообщению с командой!",
+            ephemeral=True
         )
-        embed.add_field(name="📅 Дата", value=date, inline=False)
-        amounts_text = "\n".join(f"+ {a:,}" for a in amounts)
-        embed.add_field(name="💰 Заработано", value=amounts_text, inline=False)
-        embed.add_field(
-            name="📊 Осталось отбить",
-            value=f"**{new_total:,}** $",
-            inline=False
-        )
-        embed.set_footer(text=f"Выдано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+        return
 
-        await interaction.response.send_message(embed=embed)
+    parts = суммы.split()
+    amounts = []
+    for p in parts:
+        try:
+            val = int(p.replace(" ", "").replace(",", "").replace(".", ""))
+            amounts.append(val)
+        except:
+            await interaction.response.send_message(
+                f"❌ Некорректное число: `{p}`. Используйте только цифры, разделяйте пробелами.",
+                ephemeral=True
+            )
+            return
+
+    if not amounts:
+        await interaction.response.send_message("❌ Вы не ввели ни одной суммы.", ephemeral=True)
+        return
+
+    sum_earned = sum(amounts)
+    if sum_earned == 0:
+        await interaction.response.send_message("❌ Сумма не может быть равна 0.", ephemeral=True)
+        return
+
+    total_before = get_total()
+    if total_before == 0:
+        await interaction.response.send_message("❌ Сначала установите сумму для отбития командой `/суммаотбить`.", ephemeral=True)
+        return
+
+    new_total = subtract(sum_earned)
+
+    embed = discord.Embed(
+        title="📋 Пополнение отбития",
+        color=discord.Color.blue(),
+        timestamp=datetime.now()
+    )
+    embed.add_field(name="📅 Дата", value=дата, inline=False)
+    amounts_text = "\n".join(f"+ {a:,}" for a in amounts)
+    embed.add_field(name="💰 Заработано", value=amounts_text, inline=False)
+    embed.add_field(
+        name="📊 Осталось отбить",
+        value=f"**{new_total:,}** $",
+        inline=False
+    )
+    embed.add_field(
+        name="🖼 Скриншоты",
+        value=f"Приложено файлов: {len(interaction.message.attachments)}",
+        inline=False
+    )
+    embed.set_footer(text=f"Выдано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+
+    await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="остаток", description="Показать текущий остаток для отбития")
 async def остаток(interaction: discord.Interaction):
