@@ -3,8 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 import sqlite3
 import os
+import threading
 from datetime import datetime
 from dotenv import load_dotenv
+from aiohttp import web
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -124,5 +126,15 @@ async def остаток(interaction: discord.Interaction):
     embed = discord.Embed(title="📊 Текущий остаток", description=f"**{total:,}** $", color=discord.Color.blue())
     await interaction.response.send_message(embed=embed)
 
+async def health_check(request):
+    return web.Response(text="Bot is running")
+
+def run_web_server():
+    app = web.Application()
+    app.router.add_get('/', health_check)
+    port = int(os.environ.get("PORT", 10000))
+    web.run_app(app, port=port)
+
 if __name__ == "__main__":
+    threading.Thread(target=run_web_server, daemon=True).start()
     bot.run(TOKEN)
