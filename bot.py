@@ -39,27 +39,22 @@ async def on_ready():
     await bot.tree.sync()
     print(f"✅ Бот {bot.user} запущен!")
 
-@bot.tree.command(name="settotal", description="Установить начальную сумму (только для админов)")
-@app_commands.describe(amount="Новая сумма остатка (только цифры)")
-async def settotal(interaction: discord.Interaction, amount: str):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ Только администраторы могут использовать эту команду.", ephemeral=True)
-        return
+@bot.tree.command(name="суммаотбить", description="Установить сумму, которую нужно отбить (всего капитал)")
+@app_commands.describe(сумма="Общая сумма для отбития (только цифры)")
+async def суммаотбить(interaction: discord.Interaction, сумма: str):
     try:
-        val = int(amount.replace(" ", "").replace(",", "").replace(".", ""))
+        val = int(сумма.replace(" ", "").replace(",", "").replace(".", ""))
     except:
         await interaction.response.send_message("❌ Неверный формат. Введите число, например 117108658.", ephemeral=True)
         return
     set_total(val)
-    await interaction.response.send_message(f"✅ Начальный остаток установлен: **{val:,}** $")
+    await interaction.response.send_message(f"✅ Сумма для отбития установлена: **{val:,}** $")
 
-@bot.tree.command(name="status", description="Показать текущий остаток")
-async def status(interaction: discord.Interaction):
-    total = get_total()
-    embed = discord.Embed(title="📊 Текущий остаток", description=f"**{total:,}** $", color=discord.Color.blue())
-    await interaction.response.send_message(embed=embed)
+@bot.tree.command(name="пополнить", description="Добавить заработанные суммы (откроется форма)")
+async def пополнить(interaction: discord.Interaction):
+    await interaction.response.send_modal(RentModal())
 
-class RentModal(discord.ui.Modal, title="Добавление аренды"):
+class RentModal(discord.ui.Modal, title="Пополнение отбития"):
     date = discord.ui.TextInput(
         label="📅 Дата",
         placeholder="Например: 05.07",
@@ -100,10 +95,14 @@ class RentModal(discord.ui.Modal, title="Добавление аренды"):
             return
 
         total_before = get_total()
+        if total_before == 0:
+            await interaction.response.send_message("❌ Сначала установите сумму для отбития командой `/суммаотбить`.", ephemeral=True)
+            return
+
         new_total = subtract(sum_earned)
 
         embed = discord.Embed(
-            title="📋 Запись аренды",
+            title="📋 Пополнение отбития",
             color=discord.Color.blue(),
             timestamp=datetime.now()
         )
@@ -111,7 +110,7 @@ class RentModal(discord.ui.Modal, title="Добавление аренды"):
         amounts_text = "\n".join(f"+ {a:,}" for a in amounts)
         embed.add_field(name="💰 Заработано", value=amounts_text, inline=False)
         embed.add_field(
-            name="📊 Итоговая цена (сколько осталось отбить)",
+            name="📊 Осталось отбить",
             value=f"**{new_total:,}** $",
             inline=False
         )
@@ -119,9 +118,11 @@ class RentModal(discord.ui.Modal, title="Добавление аренды"):
 
         await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="addrent", description="Добавить заработок (откроется форма)")
-async def addrent(interaction: discord.Interaction):
-    await interaction.response.send_modal(RentModal())
+@bot.tree.command(name="остаток", description="Показать текущий остаток для отбития")
+async def остаток(interaction: discord.Interaction):
+    total = get_total()
+    embed = discord.Embed(title="📊 Текущий остаток", description=f"**{total:,}** $", color=discord.Color.blue())
+    await interaction.response.send_message(embed=embed)
 
 if __name__ == "__main__":
     bot.run(TOKEN)
