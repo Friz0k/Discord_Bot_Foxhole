@@ -33,7 +33,9 @@ def subtract(amount_sum):
     set_total(new_total)
     return new_total
 
-bot = commands.Bot(command_prefix="!", intents=discord.Intents.all())
+# Только стандартные интенты – слэш-команды работают без привилегий
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
