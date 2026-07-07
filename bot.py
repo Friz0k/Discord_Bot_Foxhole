@@ -135,7 +135,7 @@ async def остаток(interaction: discord.Interaction):
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", port), handler) as httpd:
+    with socketserver.TCPServer(("0.0.0.0", port), handler) as httpd:
         print(f"🌐 Веб-сервер запущен на порту {port}")
         httpd.serve_forever()
 
