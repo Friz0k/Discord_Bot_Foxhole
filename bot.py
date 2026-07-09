@@ -44,6 +44,44 @@ async def on_ready():
     await bot.tree.sync()
     print(f"✅ Бот {bot.user} запущен!")
 
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    if not message.reference:
+        return
+    try:
+        referenced = await message.channel.fetch_message(message.reference.message_id)
+    except:
+        return
+    if referenced.author.id != bot.user.id:
+        return
+    if message.author.id not in pending_data:
+        return
+    data = pending_data[message.author.id]
+    if referenced.id != data["request_message_id"]:
+        return
+    if not message.attachments:
+        await message.reply("❌ Вы не прикрепили ни одного файла.", delete_after=10)
+        return
+    if len(message.attachments) < 2 or len(message.attachments) > 5:
+        await message.reply(f"❌ Прикрепите от 2 до 5 скриншотов. Сейчас: {len(message.attachments)}.", delete_after=10)
+        return
+    new_total = subtract(message.author.id, data["sum_earned"])
+    embed = discord.Embed(
+        title="📋 Пополнение отбития",
+        color=discord.Color.blue(),
+        timestamp=datetime.now()
+    )
+    embed.add_field(name="📅 Дата", value=data["date"], inline=False)
+    embed.add_field(name="💰 Заработано", value="\n".join(f"+ {a:,}" for a in data["amounts"]), inline=False)
+    embed.add_field(name="📊 Остаток до вычета", value=f"{data['total_before']:,} $", inline=True)
+    embed.add_field(name="💵 Новый остаток", value=f"**{new_total:,}** $", inline=True)
+    embed.add_field(name="🖼 Скриншоты", value=f"Приложено файлов: {len(message.attachments)}", inline=False)
+    embed.set_footer(text=f"Выдано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+    await message.reply(embed=embed)
+    pending_data.pop(message.author.id, None)
+
 @bot.tree.command(name="суммаотбить", description="Установить сумму, которую нужно отбить (ваш личный капитал)")
 @app_commands.describe(сумма="Общая сумма для отбития (только цифры)")
 async def суммаотбить(interaction: discord.Interaction, сумма: str):
@@ -100,69 +138,25 @@ class RentModal(discord.ui.Modal, title="Пополнение отбития"):
             await interaction.response.send_message("❌ Сначала установите свою сумму для отбития командой `/суммаотбить`.", ephemeral=True)
             return
 
-        pending_data[interaction.user.id] = {
-            "date": date,
-            "amounts": amounts,
-            "sum_earned": sum_earned,
-            "total_before": total_before
-        }
-
         embed = discord.Embed(
-            title="📋 Ожидание скриншотов",
-            description="Прикрепите 2–5 скриншотов к этому сообщению и нажмите кнопку 'Подтвердить'.",
-            color=discord.Color.blue(),
-            timestamp=datetime.now()
+            title="📷 Требуются скриншоты",
+            description="Прикрепите 2–5 скриншотов **ответом на это сообщение**.",
+            color=discord.Color.blue()
         )
         embed.add_field(name="📅 Дата", value=date, inline=False)
         embed.add_field(name="💰 Суммы", value="\n".join(f"+ {a:,}" for a in amounts), inline=False)
         embed.add_field(name="📊 Остаток до вычета", value=f"{total_before:,} $", inline=True)
-        embed.set_footer(text="Ожидание подтверждения")
+        embed.set_footer(text="Ожидание файлов")
 
-        view = discord.ui.View()
-        view.add_item(ConfirmButton(interaction.user.id))
+        msg = await interaction.response.send_message(embed=embed)
 
-        await interaction.response.send_message(embed=embed, view=view)
-
-class ConfirmButton(discord.ui.Button):
-    def __init__(self, user_id):
-        super().__init__(label="✅ Подтвердить", style=discord.ButtonStyle.green)
-        self.user_id = user_id
-
-    async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ Это не ваша заявка.", ephemeral=True)
-            return
-
-        data = pending_data.get(interaction.user.id)
-        if not data:
-            await interaction.response.send_message("❌ Данные не найдены. Попробуйте заново через `/пополнить`.", ephemeral=True)
-            return
-
-        attachments = interaction.message.attachments
-        if len(attachments) < 2 or len(attachments) > 5:
-            await interaction.response.send_message(
-                f"❌ Прикрепите от 2 до 5 скриншотов. Сейчас приложено: {len(attachments)}.",
-                ephemeral=True
-            )
-            return
-
-        new_total = subtract(interaction.user.id, data["sum_earned"])
-
-        embed = discord.Embed(
-            title="📋 Пополнение отбития",
-            color=discord.Color.blue(),
-            timestamp=datetime.now()
-        )
-        embed.add_field(name="📅 Дата", value=data["date"], inline=False)
-        embed.add_field(name="💰 Заработано", value="\n".join(f"+ {a:,}" for a in data["amounts"]), inline=False)
-        embed.add_field(name="📊 Остаток до вычета", value=f"{data['total_before']:,} $", inline=True)
-        embed.add_field(name="💵 Новый остаток", value=f"**{new_total:,}** $", inline=True)
-        embed.add_field(name="🖼 Скриншоты", value=f"Приложено файлов: {len(attachments)}", inline=False)
-        embed.set_footer(text=f"Выдано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
-
-        await interaction.response.edit_message(embed=embed, view=None, content="✅ Заявка подтверждена!")
-
-        pending_data.pop(interaction.user.id, None)
+        pending_data[interaction.user.id] = {
+            "date": date,
+            "amounts": amounts,
+            "sum_earned": sum_earned,
+            "total_before": total_before,
+            "request_message_id": msg.id
+        }
 
 @bot.tree.command(name="пополнить", description="Добавить заработанные суммы (откроется форма)")
 async def пополнить(interaction: discord.Interaction):
