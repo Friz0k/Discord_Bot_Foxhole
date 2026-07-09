@@ -53,78 +53,78 @@ async def суммаотбить(interaction: discord.Interaction, сумма: s
     set_total(interaction.user.id, val)
     await interaction.response.send_message(f"✅ Ваша сумма для отбития установлена: **{val:,}** $")
 
-@bot.tree.command(name="пополнить", description="Добавить заработанные суммы (обязателен скриншот)")
-@app_commands.describe(
-    дата="Дата (например 05.07)",
-    суммы="Суммы через пробел (например 75000 85500)",
-    скриншот="Прикрепите один скриншот (основной)"
-)
-async def пополнить(
-    interaction: discord.Interaction,
-    дата: str,
-    суммы: str,
-    скриншот: discord.Attachment
-):
-    all_attachments = list(interaction.message.attachments) if interaction.message else []
-    if скриншот and скриншот not in all_attachments:
-        all_attachments.insert(0, скриншот)
+class TopUpModal(discord.ui.Modal, title="Пополнение отбития"):
+    date = discord.ui.TextInput(
+        label="📅 Дата",
+        placeholder="Например: 05.07",
+        required=True,
+        max_length=50
+    )
+    sums = discord.ui.TextInput(
+        label="💰 Суммы (через пробел)",
+        placeholder="Например: 75000 85500",
+        required=True,
+        max_length=200
+    )
 
-    if not all_attachments:
-        await interaction.response.send_message("❌ Вы должны прикрепить хотя бы один скриншот!", ephemeral=True)
-        return
+    def __init__(self, proof_url: str):
+        super().__init__()
+        self.proof_url = proof_url
 
-    if len(all_attachments) < 2 or len(all_attachments) > 5:
-        await interaction.response.send_message(
-            f"❌ Прикрепите от 2 до 5 скриншотов. Сейчас: {len(all_attachments)}.",
-            ephemeral=True
-        )
-        return
+    async def on_submit(self, interaction: discord.Interaction):
+        date = self.date.value
+        sums_str = self.sums.value
 
-    parts = суммы.split()
-    amounts = []
-    for p in parts:
-        try:
-            val = int(p.replace(" ", "").replace(",", "").replace(".", ""))
-            amounts.append(val)
-        except:
-            await interaction.response.send_message(f"❌ Некорректное число: `{p}`.", ephemeral=True)
+        parts = sums_str.split()
+        amounts = []
+        for p in parts:
+            try:
+                val = int(p.replace(" ", "").replace(",", "").replace(".", ""))
+                amounts.append(val)
+            except:
+                await interaction.response.send_message(
+                    f"❌ Некорректное число: `{p}`. Используйте только цифры, разделяйте пробелами.",
+                    ephemeral=True
+                )
+                return
+
+        if not amounts:
+            await interaction.response.send_message("❌ Вы не ввели ни одной суммы.", ephemeral=True)
             return
 
-    if not amounts:
-        await interaction.response.send_message("❌ Вы не ввели ни одной суммы.", ephemeral=True)
+        sum_earned = sum(amounts)
+        if sum_earned == 0:
+            await interaction.response.send_message("❌ Сумма не может быть равна 0.", ephemeral=True)
+            return
+
+        total_before = get_total(interaction.user.id)
+        if total_before == 0:
+            await interaction.response.send_message("❌ Сначала установите свою сумму для отбития командой `/суммаотбить`.", ephemeral=True)
+            return
+
+        new_total = subtract(interaction.user.id, sum_earned)
+
+        embed = discord.Embed(
+            title="📋 Пополнение отбития",
+            color=discord.Color.blue(),
+            timestamp=datetime.now()
+        )
+        embed.add_field(name="📅 Дата", value=date, inline=False)
+        embed.add_field(name="💰 Заработано", value="\n".join(f"+ {a:,}" for a in amounts), inline=False)
+        embed.add_field(name="📊 Остаток до вычета", value=f"{total_before:,} $", inline=True)
+        embed.add_field(name="💵 Новый остаток", value=f"**{new_total:,}** $", inline=True)
+        embed.set_image(url=self.proof_url)
+        embed.set_footer(text=f"Выдано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+
+        await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="пополнить", description="Пополнить отбитие (обязателен скриншот)")
+@app_commands.describe(скриншот="Прикрепите основной скриншот")
+async def пополнить(interaction: discord.Interaction, скриншот: discord.Attachment):
+    if not скриншот:
+        await interaction.response.send_message("❌ Прикрепите скриншот в поле 'Вложение'.", ephemeral=True)
         return
-
-    sum_earned = sum(amounts)
-    if sum_earned == 0:
-        await interaction.response.send_message("❌ Сумма не может быть равна 0.", ephemeral=True)
-        return
-
-    total_before = get_total(interaction.user.id)
-    if total_before == 0:
-        await interaction.response.send_message("❌ Сначала установите свою сумму для отбития командой `/суммаотбить`.", ephemeral=True)
-        return
-
-    new_total = subtract(interaction.user.id, sum_earned)
-
-    embed = discord.Embed(
-        title="📋 Пополнение отбития",
-        color=discord.Color.blue(),
-        timestamp=datetime.now()
-    )
-    embed.add_field(name="📅 Дата", value=дата, inline=False)
-    embed.add_field(name="💰 Заработано", value="\n".join(f"+ {a:,}" for a in amounts), inline=False)
-    embed.add_field(name="📊 Остаток до вычета", value=f"{total_before:,} $", inline=True)
-    embed.add_field(name="💵 Новый остаток", value=f"**{new_total:,}** $", inline=True)
-
-    embed.set_image(url=all_attachments[0].url)
-
-    if len(all_attachments) > 1:
-        links = "\n".join([f"[Скриншот {i+1}]({a.url})" for i, a in enumerate(all_attachments[1:], start=1)])
-        embed.add_field(name="🖼 Дополнительные скриншоты", value=links, inline=False)
-
-    embed.set_footer(text=f"Выдано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
-
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_modal(TopUpModal(скриншот.url))
 
 @bot.tree.command(name="остаток", description="Показать ваш текущий остаток для отбития")
 async def остаток(interaction: discord.Interaction):
