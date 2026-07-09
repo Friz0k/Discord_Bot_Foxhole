@@ -162,6 +162,58 @@ class RentModal(discord.ui.Modal, title="Пополнение отбития"):
 async def пополнить(interaction: discord.Interaction):
     await interaction.response.send_modal(RentModal())
 
+@bot.tree.command(name="пополнитькомманда", description="Добавить заработок через команду (прикрепите скриншоты к сообщению)")
+@app_commands.describe(дата="Дата (например 05.07)", суммы="Суммы через пробел (например 75000 85500)")
+async def пополнитькомманда(interaction: discord.Interaction, дата: str, суммы: str):
+    if not interaction.message or not interaction.message.attachments:
+        await interaction.response.send_message("❌ Вы должны прикрепить скриншоты к сообщению с командой!", ephemeral=True)
+        return
+
+    attachments = interaction.message.attachments
+    if len(attachments) < 2 or len(attachments) > 5:
+        await interaction.response.send_message(f"❌ Прикрепите от 2 до 5 скриншотов. Сейчас: {len(attachments)}.", ephemeral=True)
+        return
+
+    parts = суммы.split()
+    amounts = []
+    for p in parts:
+        try:
+            val = int(p.replace(" ", "").replace(",", "").replace(".", ""))
+            amounts.append(val)
+        except:
+            await interaction.response.send_message(f"❌ Некорректное число: `{p}`.", ephemeral=True)
+            return
+
+    if not amounts:
+        await interaction.response.send_message("❌ Вы не ввели ни одной суммы.", ephemeral=True)
+        return
+
+    sum_earned = sum(amounts)
+    if sum_earned == 0:
+        await interaction.response.send_message("❌ Сумма не может быть равна 0.", ephemeral=True)
+        return
+
+    total_before = get_total(interaction.user.id)
+    if total_before == 0:
+        await interaction.response.send_message("❌ Сначала установите свою сумму для отбития командой `/суммаотбить`.", ephemeral=True)
+        return
+
+    new_total = subtract(interaction.user.id, sum_earned)
+
+    embed = discord.Embed(
+        title="📋 Пополнение отбития",
+        color=discord.Color.blue(),
+        timestamp=datetime.now()
+    )
+    embed.add_field(name="📅 Дата", value=дата, inline=False)
+    embed.add_field(name="💰 Заработано", value="\n".join(f"+ {a:,}" for a in amounts), inline=False)
+    embed.add_field(name="📊 Остаток до вычета", value=f"{total_before:,} $", inline=True)
+    embed.add_field(name="💵 Новый остаток", value=f"**{new_total:,}** $", inline=True)
+    embed.add_field(name="🖼 Скриншоты", value=f"Приложено файлов: {len(attachments)}", inline=False)
+    embed.set_footer(text=f"Выдано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+
+    await interaction.response.send_message(embed=embed)
+
 @bot.tree.command(name="остаток", description="Показать ваш текущий остаток для отбития")
 async def остаток(interaction: discord.Interaction):
     total = get_total(interaction.user.id)
