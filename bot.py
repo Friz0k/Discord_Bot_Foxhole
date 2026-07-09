@@ -139,8 +139,8 @@ class RentModal(discord.ui.Modal, title="Пополнение отбития"):
             return
 
         embed = discord.Embed(
-            title="📷 Требуются скриншоты",
-            description="Прикрепите 2–5 скриншотов **ответом на это сообщение**.",
+            title="📷 Ожидание скриншотов",
+            description="Ответьте на это сообщение, прикрепив 2–5 файлов.",
             color=discord.Color.blue()
         )
         embed.add_field(name="📅 Дата", value=date, inline=False)
