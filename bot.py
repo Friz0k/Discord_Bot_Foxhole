@@ -104,20 +104,20 @@ class TopUpModal(discord.ui.Modal, title="Аренда за день"):
 
         new_total = subtract(interaction.user.id, sum_earned)
 
-        # Изменено: Цвет оранжевый и убран параметр timestamp, чтобы избежать двойного времени
         embed = discord.Embed(
             title="📋 Аренда за день",
             color=discord.Color.orange()
         )
-        embed.add_field(name="📅 Дата", value=date, inline=False)
-        embed.add_field(name="💰 Заработано", value="\n".join(f"+ {a:,}" for a in amounts), inline=False)
         
-        # Изменено: Названия полей согласно запросу
-        embed.add_field(name="📊 Остаток", value=f"{total_before:,} $", inline=True)
-        embed.add_field(name="💵 Осталось отбить", value=f"**{new_total:,}** $", inline=True)
+        # --- ПРАВКИ ЗДЕСЬ: новый порядок и у всех inline=False ---
+        embed.add_field(name="📅 Дата", value=date, inline=False)
+        embed.add_field(name="📊 Остаток", value=f"{total_before:,} $", inline=False)
+        embed.add_field(name="💰 Заработок", value="\n".join(f"+ {a:,}" for a in amounts), inline=False)
+        embed.add_field(name="💵 Осталось отбить", value=f"**{new_total:,}** $", inline=False)
+        # ---------------------------------------------------------
+        
         embed.set_image(url=self.proof_url)
         
-        # Изменено: Одно время по МСК в футере
         msk_tz = timezone(timedelta(hours=3))
         msk_time = datetime.now(msk_tz)
         embed.set_footer(text=f"Выдано: {msk_time.strftime('%d.%m.%Y %H:%M:%S')} (МСК)")
@@ -135,7 +135,6 @@ async def пополнить(interaction: discord.Interaction, скриншот:
 @bot.tree.command(name="остаток", description="Показать ваш текущий остаток для отбития")
 async def остаток(interaction: discord.Interaction):
     total = get_total(interaction.user.id)
-    # Здесь тоже поменял на оранжевый для единообразия, если нужно
     embed = discord.Embed(title="📊 Ваш текущий остаток", description=f"**{total:,}** $", color=discord.Color.orange())
     await interaction.response.send_message(embed=embed)
 
