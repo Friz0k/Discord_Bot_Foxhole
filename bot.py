@@ -6,7 +6,7 @@ import os
 import threading
 import http.server
 import socketserver
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -53,7 +53,7 @@ async def суммаотбить(interaction: discord.Interaction, сумма: s
     set_total(interaction.user.id, val)
     await interaction.response.send_message(f"✅ Ваша сумма для отбития установлена: **{val:,}** $")
 
-class TopUpModal(discord.ui.Modal, title="Пополнение отбития"):
+class TopUpModal(discord.ui.Modal, title="Аренда за день"):
     date = discord.ui.TextInput(
         label="📅 Дата",
         placeholder="Например: 05.07",
@@ -104,17 +104,23 @@ class TopUpModal(discord.ui.Modal, title="Пополнение отбития"):
 
         new_total = subtract(interaction.user.id, sum_earned)
 
+        # Изменено: Цвет оранжевый и убран параметр timestamp, чтобы избежать двойного времени
         embed = discord.Embed(
-            title="📋 Пополнение отбития",
-            color=discord.Color.blue(),
-            timestamp=datetime.now()
+            title="📋 Аренда за день",
+            color=discord.Color.orange()
         )
         embed.add_field(name="📅 Дата", value=date, inline=False)
         embed.add_field(name="💰 Заработано", value="\n".join(f"+ {a:,}" for a in amounts), inline=False)
-        embed.add_field(name="📊 Остаток до вычета", value=f"{total_before:,} $", inline=True)
-        embed.add_field(name="💵 Новый остаток", value=f"**{new_total:,}** $", inline=True)
+        
+        # Изменено: Названия полей согласно запросу
+        embed.add_field(name="📊 Остаток", value=f"{total_before:,} $", inline=True)
+        embed.add_field(name="💵 Осталось отбить", value=f"**{new_total:,}** $", inline=True)
         embed.set_image(url=self.proof_url)
-        embed.set_footer(text=f"Выдано: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+        
+        # Изменено: Одно время по МСК в футере
+        msk_tz = timezone(timedelta(hours=3))
+        msk_time = datetime.now(msk_tz)
+        embed.set_footer(text=f"Выдано: {msk_time.strftime('%d.%m.%Y %H:%M:%S')} (МСК)")
 
         await interaction.response.send_message(embed=embed)
 
@@ -129,7 +135,8 @@ async def пополнить(interaction: discord.Interaction, скриншот:
 @bot.tree.command(name="остаток", description="Показать ваш текущий остаток для отбития")
 async def остаток(interaction: discord.Interaction):
     total = get_total(interaction.user.id)
-    embed = discord.Embed(title="📊 Ваш текущий остаток", description=f"**{total:,}** $", color=discord.Color.blue())
+    # Здесь тоже поменял на оранжевый для единообразия, если нужно
+    embed = discord.Embed(title="📊 Ваш текущий остаток", description=f"**{total:,}** $", color=discord.Color.orange())
     await interaction.response.send_message(embed=embed)
 
 def run_web_server():
